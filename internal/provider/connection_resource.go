@@ -295,7 +295,7 @@ func (r *ConnectionResource) Delete(ctx context.Context, req resource.DeleteRequ
 }
 
 // ImportState imports the resource state.
-// Import ID format: database_id,connection_id
+// Import ID format: database_id,connection_id.
 func (r *ConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
