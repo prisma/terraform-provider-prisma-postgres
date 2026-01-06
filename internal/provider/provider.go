@@ -105,9 +105,13 @@ func (p *PrismaProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		return
 	}
 
+	// Allow overriding the base URL for testing.
+	baseURL := os.Getenv("PRISMA_API_BASE_URL")
+
 	apiClient := client.NewClient(client.Config{
 		ServiceToken: serviceToken,
 		UserAgent:    "terraform-provider-prisma-postgres/" + p.version,
+		BaseURL:      baseURL,
 	})
 
 	resp.DataSourceData = apiClient
