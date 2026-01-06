@@ -30,10 +30,13 @@ builds:
     ignore:
       - goos: darwin
         goarch: "386"
+      - goos: windows
+        goarch: arm
     binary: terraform-provider-prisma-postgres
 
 archives:
-  - format: zip
+  - formats:
+      - zip
     name_template: "terraform-provider-prisma-postgres_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
