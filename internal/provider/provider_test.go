@@ -80,7 +80,10 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 	// Create project.
 	m.Handle("POST", "/v1/projects", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateProjectRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
 		project := &client.Project{
 			ID:        "proj_test123",
@@ -89,7 +92,9 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 			CreatedAt: "2025-01-07T00:00:00Z",
 		}
 
+		m.mu.Lock()
 		m.projects[project.ID] = project
+		m.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(client.CreateProjectResponse{Data: *project})
@@ -97,7 +102,10 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 
 	// Get project.
 	m.Handle("GET", "/v1/projects/proj_test123", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.RLock()
 		project, ok := m.projects["proj_test123"]
+		m.mu.RUnlock()
+
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
@@ -110,7 +118,9 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 
 	// Delete project.
 	m.Handle("DELETE", "/v1/projects/proj_test123", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.Lock()
 		delete(m.projects, "proj_test123")
+		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
@@ -120,7 +130,10 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 	// Create database.
 	m.Handle("POST", "/v1/projects/proj_test123/databases", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateDatabaseRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
 		region := req.Region
 		if region == "" {
@@ -145,7 +158,9 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 			},
 		}
 
+		m.mu.Lock()
 		m.databases[database.ID] = database
+		m.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(client.CreateDatabaseResponse{Data: *database})
@@ -153,7 +168,10 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 
 	// Get database.
 	m.Handle("GET", "/v1/databases/db_test456", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.RLock()
 		database, ok := m.databases["db_test456"]
+		m.mu.RUnlock()
+
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
@@ -180,7 +198,9 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 
 	// Delete database.
 	m.Handle("DELETE", "/v1/databases/db_test456", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.Lock()
 		delete(m.databases, "db_test456")
+		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
@@ -190,7 +210,10 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 	// Create connection.
 	m.Handle("POST", "/v1/databases/db_test456/connections", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateConnectionRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
 		connection := &client.Connection{
 			ID:               "conn_test789",
@@ -203,7 +226,9 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 			Pass:             "conn_test_password",
 		}
 
+		m.mu.Lock()
 		m.connections[connection.ID] = connection
+		m.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(client.CreateConnectionResponse{Data: *connection})
@@ -211,6 +236,7 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 
 	// List connections (used to find connection by ID).
 	m.Handle("GET", "/v1/databases/db_test456/connections", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.RLock()
 		var conns []client.Connection
 		for _, conn := range m.connections {
 			conns = append(conns, client.Connection{
@@ -224,6 +250,7 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 				},
 			})
 		}
+		m.mu.RUnlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(client.ListConnectionsResponse{
@@ -234,7 +261,9 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 
 	// Delete connection.
 	m.Handle("DELETE", "/v1/connections/conn_test789", func(w http.ResponseWriter, r *http.Request) {
+		m.mu.Lock()
 		delete(m.connections, "conn_test789")
+		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
