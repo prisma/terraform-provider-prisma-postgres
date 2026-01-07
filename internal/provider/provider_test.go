@@ -5,15 +5,36 @@ package provider
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 
 	"github.com/prisma/terraform-provider-prisma-postgres/internal/client"
 )
+
+// ID counters for generating unique resource IDs.
+var (
+	projectIDCounter    atomic.Int64
+	databaseIDCounter   atomic.Int64
+	connectionIDCounter atomic.Int64
+)
+
+func nextProjectID() string {
+	return fmt.Sprintf("proj_test%d", projectIDCounter.Add(1))
+}
+
+func nextDatabaseID() string {
+	return fmt.Sprintf("db_test%d", databaseIDCounter.Add(1))
+}
+
+func nextConnectionID() string {
+	return fmt.Sprintf("conn_test%d", connectionIDCounter.Add(1))
+}
 
 // mockAPIServer provides a configurable mock HTTP server for testing.
 type mockAPIServer struct {
@@ -25,6 +46,11 @@ type mockAPIServer struct {
 	projects    map[string]*client.Project
 	databases   map[string]*client.Database
 	connections map[string]*client.Connection
+
+	// Track last created IDs for dynamic handler registration.
+	lastProjectID    string
+	lastDatabaseID   string
+	lastConnectionID string
 }
 
 // newMockAPIServer creates a new mock API server.
@@ -75,6 +101,10 @@ func (m *mockAPIServer) Handle(method, path string, handler http.HandlerFunc) {
 
 // SetupProjectHandlers configures handlers for project CRUD operations.
 func (m *mockAPIServer) SetupProjectHandlers() {
+	// Generate ID for this test run.
+	projectID := nextProjectID()
+	m.lastProjectID = projectID
+
 	// Create project.
 	m.Handle("POST", "/v1/projects", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateProjectRequest
@@ -84,7 +114,7 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 		}
 
 		project := &client.Project{
-			ID:        "proj_test123",
+			ID:        m.lastProjectID,
 			Type:      "project",
 			Name:      req.Name,
 			CreatedAt: "2025-01-07T00:00:00Z",
@@ -99,9 +129,9 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 	})
 
 	// Get project.
-	m.Handle("GET", "/v1/projects/proj_test123", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("GET", "/v1/projects/"+projectID, func(w http.ResponseWriter, r *http.Request) {
 		m.mu.RLock()
-		project, ok := m.projects["proj_test123"]
+		project, ok := m.projects[m.lastProjectID]
 		m.mu.RUnlock()
 
 		if !ok {
@@ -115,9 +145,9 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 	})
 
 	// Delete project.
-	m.Handle("DELETE", "/v1/projects/proj_test123", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("DELETE", "/v1/projects/"+projectID, func(w http.ResponseWriter, r *http.Request) {
 		m.mu.Lock()
-		delete(m.projects, "proj_test123")
+		delete(m.projects, m.lastProjectID)
 		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -125,8 +155,12 @@ func (m *mockAPIServer) SetupProjectHandlers() {
 
 // SetupDatabaseHandlers configures handlers for database CRUD operations.
 func (m *mockAPIServer) SetupDatabaseHandlers() {
+	// Generate ID for this test run.
+	databaseID := nextDatabaseID()
+	m.lastDatabaseID = databaseID
+
 	// Create database.
-	m.Handle("POST", "/v1/projects/proj_test123/databases", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("POST", "/v1/projects/"+m.lastProjectID+"/databases", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateDatabaseRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -139,7 +173,7 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 		}
 
 		database := &client.Database{
-			ID:               "db_test456",
+			ID:               m.lastDatabaseID,
 			Type:             "database",
 			Name:             req.Name,
 			Status:           "ready",
@@ -165,9 +199,10 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 	})
 
 	// Get database.
-	m.Handle("GET", "/v1/databases/db_test456", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("GET", "/v1/databases/"+databaseID, func(w http.ResponseWriter, r *http.Request) {
 		m.mu.RLock()
-		database, ok := m.databases["db_test456"]
+		database, ok := m.databases[m.lastDatabaseID]
+		project := m.projects[m.lastProjectID]
 		m.mu.RUnlock()
 
 		if !ok {
@@ -185,8 +220,8 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 			CreatedAt: database.CreatedAt,
 			Region:    database.Region,
 			Project: &client.ProjectRef{
-				ID:   "proj_test123",
-				Name: "test-project",
+				ID:   project.ID,
+				Name: project.Name,
 			},
 		}
 
@@ -195,9 +230,9 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 	})
 
 	// Delete database.
-	m.Handle("DELETE", "/v1/databases/db_test456", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("DELETE", "/v1/databases/"+databaseID, func(w http.ResponseWriter, r *http.Request) {
 		m.mu.Lock()
-		delete(m.databases, "db_test456")
+		delete(m.databases, m.lastDatabaseID)
 		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -205,8 +240,12 @@ func (m *mockAPIServer) SetupDatabaseHandlers() {
 
 // SetupConnectionHandlers configures handlers for connection CRUD operations.
 func (m *mockAPIServer) SetupConnectionHandlers() {
+	// Generate ID for this test run.
+	connectionID := nextConnectionID()
+	m.lastConnectionID = connectionID
+
 	// Create connection.
-	m.Handle("POST", "/v1/databases/db_test456/connections", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("POST", "/v1/databases/"+m.lastDatabaseID+"/connections", func(w http.ResponseWriter, r *http.Request) {
 		var req client.CreateConnectionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -214,7 +253,7 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 		}
 
 		connection := &client.Connection{
-			ID:               "conn_test789",
+			ID:               m.lastConnectionID,
 			Type:             "connection",
 			Name:             req.Name,
 			CreatedAt:        "2025-01-07T00:00:00Z",
@@ -233,8 +272,9 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 	})
 
 	// List connections (used to find connection by ID).
-	m.Handle("GET", "/v1/databases/db_test456/connections", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("GET", "/v1/databases/"+m.lastDatabaseID+"/connections", func(w http.ResponseWriter, r *http.Request) {
 		m.mu.RLock()
+		database := m.databases[m.lastDatabaseID]
 		var conns []client.Connection
 		for _, conn := range m.connections {
 			conns = append(conns, client.Connection{
@@ -243,8 +283,8 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 				Name:      conn.Name,
 				CreatedAt: conn.CreatedAt,
 				Database: &client.DatabaseRef{
-					ID:   "db_test456",
-					Name: "test-database",
+					ID:   database.ID,
+					Name: database.Name,
 				},
 			})
 		}
@@ -258,9 +298,9 @@ func (m *mockAPIServer) SetupConnectionHandlers() {
 	})
 
 	// Delete connection.
-	m.Handle("DELETE", "/v1/connections/conn_test789", func(w http.ResponseWriter, r *http.Request) {
+	m.Handle("DELETE", "/v1/connections/"+connectionID, func(w http.ResponseWriter, r *http.Request) {
 		m.mu.Lock()
-		delete(m.connections, "conn_test789")
+		delete(m.connections, m.lastConnectionID)
 		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
