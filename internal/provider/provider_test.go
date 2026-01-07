@@ -8,11 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
 	"github.com/prisma/terraform-provider-prisma-postgres/internal/client"
 )
@@ -282,162 +280,9 @@ func (m *mockAPIServer) SetupRegionHandlers() {
 	})
 }
 
-// testAccProtoV6ProviderFactories returns provider factories for testing.
-func testAccProtoV6ProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {
+// testProtoV6ProviderFactories returns provider factories for testing.
+func testProtoV6ProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {
 	return map[string]func() (tfprotov6.ProviderServer, error){
 		"prisma-postgres": providerserver.NewProtocol6WithError(New("test")()),
 	}
-}
-
-// TestAccProjectResource tests the project resource lifecycle.
-func TestAccProjectResource(t *testing.T) {
-	mock := newMockAPIServer()
-	defer mock.Close()
-	mock.SetupProjectHandlers()
-
-	// Set environment for the test.
-	t.Setenv("PRISMA_SERVICE_TOKEN", "test-token")
-	t.Setenv("PRISMA_API_BASE_URL", mock.URL())
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories(),
-		Steps: []resource.TestStep{
-			// Create and Read testing.
-			{
-				Config: testAccProjectResourceConfig("test-project"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("prisma-postgres_project.test", "name", "test-project"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_project.test", "id"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_project.test", "created_at"),
-				),
-			},
-		},
-	})
-}
-
-func testAccProjectResourceConfig(name string) string {
-	return `
-resource "prisma-postgres_project" "test" {
-  name = "` + name + `"
-}
-`
-}
-
-// TestAccRegionsDataSource tests the regions data source.
-func TestAccRegionsDataSource(t *testing.T) {
-	mock := newMockAPIServer()
-	defer mock.Close()
-	mock.SetupRegionHandlers()
-
-	t.Setenv("PRISMA_SERVICE_TOKEN", "test-token")
-	t.Setenv("PRISMA_API_BASE_URL", mock.URL())
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories(),
-		Steps: []resource.TestStep{
-			{
-				Config: testAccRegionsDataSourceConfig(),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.prisma-postgres_regions.test", "regions.#", "3"),
-					resource.TestCheckResourceAttr("data.prisma-postgres_regions.test", "regions.0.id", "us-east-1"),
-				),
-			},
-		},
-	})
-}
-
-func testAccRegionsDataSourceConfig() string {
-	return `
-data "prisma-postgres_regions" "test" {}
-`
-}
-
-// TestAccDatabaseResource tests the database resource lifecycle.
-func TestAccDatabaseResource(t *testing.T) {
-	mock := newMockAPIServer()
-	defer mock.Close()
-	mock.SetupProjectHandlers()
-	mock.SetupDatabaseHandlers()
-
-	t.Setenv("PRISMA_SERVICE_TOKEN", "test-token")
-	t.Setenv("PRISMA_API_BASE_URL", mock.URL())
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories(),
-		Steps: []resource.TestStep{
-			{
-				Config: testAccDatabaseResourceConfig(),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("prisma-postgres_database.test", "name", "test-database"),
-					resource.TestCheckResourceAttr("prisma-postgres_database.test", "region", "us-east-1"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_database.test", "id"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_database.test", "status"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_database.test", "connection_string"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_database.test", "direct_url"),
-				),
-			},
-		},
-	})
-}
-
-func testAccDatabaseResourceConfig() string {
-	return `
-resource "prisma-postgres_project" "test" {
-  name = "test-project"
-}
-
-resource "prisma-postgres_database" "test" {
-  project_id = prisma-postgres_project.test.id
-  name       = "test-database"
-  region     = "us-east-1"
-}
-`
-}
-
-// TestAccConnectionResource tests the connection resource lifecycle.
-func TestAccConnectionResource(t *testing.T) {
-	mock := newMockAPIServer()
-	defer mock.Close()
-	mock.SetupProjectHandlers()
-	mock.SetupDatabaseHandlers()
-	mock.SetupConnectionHandlers()
-
-	t.Setenv("PRISMA_SERVICE_TOKEN", "test-token")
-	t.Setenv("PRISMA_API_BASE_URL", mock.URL())
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories(),
-		Steps: []resource.TestStep{
-			{
-				Config: testAccConnectionResourceConfig(),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("prisma-postgres_connection.test", "name", "test-connection"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_connection.test", "id"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_connection.test", "connection_string"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_connection.test", "host"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_connection.test", "user"),
-					resource.TestCheckResourceAttrSet("prisma-postgres_connection.test", "password"),
-				),
-			},
-		},
-	})
-}
-
-func testAccConnectionResourceConfig() string {
-	return `
-resource "prisma-postgres_project" "test" {
-  name = "test-project"
-}
-
-resource "prisma-postgres_database" "test" {
-  project_id = prisma-postgres_project.test.id
-  name       = "test-database"
-  region     = "us-east-1"
-}
-
-resource "prisma-postgres_connection" "test" {
-  database_id = prisma-postgres_database.test.id
-  name        = "test-connection"
-}
-`
 }

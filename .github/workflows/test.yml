@@ -5,13 +5,17 @@ name: Tests
 # Optionally, you can turn it on using a schedule for regular testing.
 on:
   pull_request:
-    paths-ignore:
-      - 'README.md'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
   push:
     branches:
       - main
-    paths-ignore:
-      - 'README.md'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
 
 # Testing only needs permissions to read the repository contents.
 permissions:
@@ -54,9 +58,9 @@ jobs:
           git diff --compact-summary --exit-code || \
             (echo; echo "Unexpected difference in directories after code generation. Run 'make docs' command and commit."; exit 1)
 
-  # Run acceptance tests in a matrix with Terraform CLI versions
+  # Run unit tests in a matrix with Terraform CLI versions.
   test:
-    name: Terraform Provider Acceptance Tests
+    name: Terraform Provider Unit Tests
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
