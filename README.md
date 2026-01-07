@@ -104,12 +104,12 @@ terraform apply
 
 ## Resources
 
-### prisma_project
+### prisma-postgres_project
 
 Manages a Prisma Postgres project.
 
 ```hcl
-resource "prisma_project" "example" {
+resource "prisma-postgres_project" "example" {
   name = "my-project"
 }
 ```
@@ -228,10 +228,10 @@ datasource db {
 ## Development
 
 ```bash
-make build    # Build the provider
-make install  # Install locally
-make test     # Run tests
-make testacc  # Run acceptance tests (requires PRISMA_SERVICE_TOKEN)
+make build       # Build the provider
+make install     # Install locally
+make test        # Run unit tests
+TF_ACC=1 make test  # Run all tests (uses mocking, no token needed)
 ```
 
 ## License
