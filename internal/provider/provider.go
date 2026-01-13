@@ -25,7 +25,7 @@ var _ provider.Provider = &PrismaProvider{}
 // PrismaProvider defines the provider implementation.
 type PrismaProvider struct {
 	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
+	// provider is built and ran locally, and "test" when running unit
 	// testing.
 	version string
 }

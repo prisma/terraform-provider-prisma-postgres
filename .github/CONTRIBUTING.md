@@ -32,16 +32,10 @@ Thank you for your interest in contributing to the Prisma Postgres Terraform Pro
 
 ### Running Tests
 
-Run unit tests:
+Run tests (uses HTTP mocking, no real API calls):
 
 ```bash
 go test ./...
-```
-
-Run acceptance tests (uses HTTP mocking, no token required):
-
-```bash
-TF_ACC=1 go test ./...
 ```
 
 ### Local Development
@@ -70,6 +64,12 @@ To test the provider locally:
    ```bash
    export PRISMA_SERVICE_TOKEN="your-token"
    ```
+
+   To get your service token:
+   1. Go to [console.prisma.io](https://console.prisma.io)
+   2. Navigate to **Settings**
+   3. Click on **Service Tokens**
+   4. Create a new token or copy an existing one
 
 4. Run Terraform (skip `terraform init` when using dev overrides):
 
