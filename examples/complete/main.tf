@@ -4,7 +4,7 @@ terraform {
   required_providers {
     prisma-postgres = {
       source  = "prisma/prisma-postgres"
-      version = "~> 0.1.0"
+      version = "~> 0.2.0"
     }
   }
 }
@@ -65,9 +65,39 @@ output "production_database_id" {
   value       = prisma-postgres_database.production.id
 }
 
+output "staging_database_id" {
+  description = "Staging database ID"
+  value       = prisma-postgres_database.staging.id
+}
+
 output "production_database_status" {
   description = "Production database status"
   value       = prisma-postgres_database.production.status
+}
+
+output "production_region" {
+  description = "Region where production database is deployed"
+  value       = prisma-postgres_database.production.region
+}
+
+output "staging_region" {
+  description = "Region where staging database is deployed"
+  value       = prisma-postgres_database.staging.region
+}
+
+output "api_connection_id" {
+  description = "API connection ID"
+  value       = prisma-postgres_connection.api.id
+}
+
+output "worker_connection_id" {
+  description = "Worker connection ID"
+  value       = prisma-postgres_connection.worker.id
+}
+
+output "staging_connection_id" {
+  description = "Staging connection ID"
+  value       = prisma-postgres_connection.staging.id
 }
 
 output "database_url" {
